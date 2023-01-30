@@ -1,0 +1,72 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+//RWTexture2D<float4> Result; 
+
+RWStructuredBuffer<float4> Colour;
+StructuredBuffer<float3> Vertices;
+StructuredBuffer<float3> Nodes;
+StructuredBuffer<float4> NodesColour;
+
+float seaBed;
+
+float GetDistance(float3 a, float3 b)
+{
+    float xSqr = (a.x - b.x) * (a.x - b.x);
+    float ySqr = (a.y - b.y) * (a.y - b.y);
+    float zSqr = (a.z - b.z) * (a.z - b.z);
+
+    return sqrt(xSqr + ySqr + zSqr);
+}
+
+float4 GetClosestNode(float3 vertex)
+{
+    float nearest = -1;
+    int index = 0;
+    float4 baseColour = float4(Nodes.Length, 0, 0, 0);
+
+    for (int i = 1; i < Nodes.Length; i++)
+    {
+        float current = GetDistance(normalize(vertex), normalize(Nodes[i]));
+
+        if (current < nearest || nearest ==-1) 
+        {
+            nearest = current;
+            index = i;
+        }
+    }
+    baseColour = NodesColour[index];
+
+    for (int j = 1; j < Nodes.Length; j++)
+    {
+        float percent = GetDistance(normalize(vertex), normalize(Nodes[index])) / GetDistance(normalize(vertex), normalize(Nodes[j]));
+
+        if (j != index && percent>0.75) 
+        {
+            float range = GetDistance(normalize(vertex), normalize(Nodes[j])) - GetDistance(normalize(vertex), normalize(Nodes[index]));
+
+            float blendPercent = GetDistance(normalize(vertex), normalize(Nodes[index])) - (GetDistance(normalize(vertex), normalize(Nodes[j]))*0.75);
+            //basecoloour should be outside the program
+            baseColour = (baseColour * (1-blendPercent)) + (NodesColour[j] * blendPercent);
+        }
+    }
+    return baseColour;
+}
+
+[numthreads(256,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    //float4 blue = (0.0, 0.0, 255, 1);
+
+    if (GetDistance(Vertices[id.x], float3(0, 0, 0))<=seaBed) {
+        Colour[id.x] = NodesColour[0];
+    }
+    else {
+        Colour[id.x] = GetClosestNode(Vertices[id.x]);
+    }
+
+    //Colour[id.x] = blue;
+
+}

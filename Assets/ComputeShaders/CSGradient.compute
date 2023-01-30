@@ -1,0 +1,63 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+struct ColourKey {
+    float4 colour;
+    float time;
+};
+
+RWStructuredBuffer<float4> Colour;
+StructuredBuffer<float3> Vertices;
+StructuredBuffer<ColourKey> Keys;
+
+float GetDistance(float3 a, float3 b)
+{
+    float xSqr = (a.x - b.x) * (a.x - b.x);
+    float ySqr = (a.y - b.y) * (a.y - b.y);
+    float zSqr = (a.z - b.z) * (a.z - b.z);
+
+    return sqrt(xSqr + ySqr + zSqr);
+}
+
+float4 Evaluate(float position) 
+{
+    for (int i = 0; i<Keys.Length;i++) 
+    {
+        if (Keys[i].time == position)
+        {
+            return Keys[i].colour;
+        }
+        else if (Keys[i].time > position)
+        {
+            float percent = (position - Keys[i - 1].time) / (Keys[i].time - Keys[i - 1].time);
+            return (Keys[i].colour*percent) + (Keys[i-1].colour *(1- percent));
+        }
+     }
+    //return float4(Keys.Length, 0, 0, 1);
+    return Keys[0].colour;
+}
+
+[numthreads(256,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    float highest = 0;
+    float lowest = 0;
+
+
+    float distance = GetDistance(Vertices[id.x], float3(0, 0, 0));
+
+    //float range = highest - lowest;
+
+    Colour[id.x] = Evaluate(distance-1);
+
+}
+
+/*
+get highest and lowest
+
+distance-lowest / highest-lowest
+
+key * result + key * 1-result
+*/

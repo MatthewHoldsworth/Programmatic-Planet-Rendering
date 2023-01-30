@@ -1,0 +1,44 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWStructuredBuffer<float3> Vertices;
+RWStructuredBuffer<int> Triangles;
+
+int Resolution;
+float3 LocalUp;
+float3 AxisA;
+float3 AxisB;
+float Radius;
+
+[numthreads(256,1,1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+
+    //int triIndex = (Resolution - 1) * (Resolution - 1) * 6 * Index;
+
+    float2 percent = float2(id.x % Resolution, int(id.x / Resolution)) / (Resolution - 1);
+
+    float3 pointOnUnitCube = LocalUp + ((percent.x - .5f) * 2 * AxisA) + ((percent.y - .5f) * 2 * AxisB);
+
+    float3 pointOnUnitSphere = normalize(pointOnUnitCube);
+
+    Vertices[id.x] = pointOnUnitSphere * Radius;
+
+    if ((id.x % Resolution) != 0 && (int(id.x / Resolution) != 0)) 
+    {
+        int triRow = 6 * (Resolution - 1);
+        int triIndex = (int(id.x / Resolution)-1) * triRow + (((id.x % Resolution)-1)*6);
+
+        Triangles[triIndex] = id.x - Resolution - 1;
+        Triangles[triIndex + 1] = id.x - Resolution;
+        Triangles[triIndex + 2] = id.x;
+
+        Triangles[triIndex+3] = id.x - Resolution - 1;
+        Triangles[triIndex + 4] = id.x;
+        Triangles[triIndex + 5] = id.x - 1;
+
+    }
+}
